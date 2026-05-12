@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.egg-info/
+.venv/
+tf-env/
+
+# SwitchBot data — never commit camera footage
+*.media
+*.info
+11/
+11converted/
+converted_mp4/
