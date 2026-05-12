@@ -4,7 +4,7 @@ Batch-converts SwitchBot camera SD card recordings (`.media` + `.info` files) in
 
 ## Download
 
-**[⬇ Download SwitchBot_Converter.exe](https://github.com/natebell510/switchbot-media-to-mp4/releases/download/v1.2.0/SwitchBot_Converter.exe)** — double-click and run. FFmpeg installs automatically on first launch.
+**[⬇ Download SwitchBot_Converter.exe](https://github.com/natebell510/switchbot-media-to-mp4/releases/download/v1.3.0/SwitchBot_Converter.exe)** — graphical app, drag & drop, no setup required.
 
 Or clone and run the Python script directly (see [Script usage](#python-script)).
 
@@ -23,10 +23,11 @@ Or clone and run the Python script directly (see [Script usage](#python-script))
 
 ### Executable (easiest)
 
-1. [Download `SwitchBot_Converter.exe`](https://github.com/natebell510/switchbot-media-to-mp4/releases/download/v1.2.0/SwitchBot_Converter.exe)
+1. [Download `SwitchBot_Converter.exe`](https://github.com/natebell510/switchbot-media-to-mp4/releases/download/v1.3.0/SwitchBot_Converter.exe)
 2. Double-click it — FFmpeg installs automatically if needed
-3. Paste the path to your SD card folder when prompted
-4. MP4 files appear in a `converted_mp4` subfolder
+3. Drag your recordings folder onto the drop zone (or click Browse)
+4. Pick where to save the MP4s, then click **Convert**
+5. The output folder opens automatically when done
 
 ### Python script
 
