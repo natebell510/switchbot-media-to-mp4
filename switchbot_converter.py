@@ -14,17 +14,14 @@ try:
 except ImportError:
     HAS_TQDM = False
 
-# Common locations winget installs FFmpeg to
 _FFMPEG_SEARCH_PATHS = [
     Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "FFmpeg" / "bin" / "ffmpeg.exe",
-    Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Packages",
     Path("C:/ffmpeg/bin/ffmpeg.exe"),
     Path("C:/tools/ffmpeg/bin/ffmpeg.exe"),
 ]
 
 
 def _find_ffmpeg_in_winget() -> Path | None:
-    """Search the WinGet packages folder for ffmpeg.exe."""
     base = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Packages"
     if not base.is_dir():
         return None
@@ -34,29 +31,21 @@ def _find_ffmpeg_in_winget() -> Path | None:
 
 
 def find_ffmpeg() -> str | None:
-    """Return path to ffmpeg.exe, or None if not found anywhere."""
-    # 1. Already on PATH?
     try:
         subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
         return "ffmpeg"
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
-
-    # 2. Common fixed paths
     for p in _FFMPEG_SEARCH_PATHS:
-        if isinstance(p, Path) and p.suffix == ".exe" and p.is_file():
+        if p.is_file():
             return str(p)
-
-    # 3. WinGet packages tree
     found = _find_ffmpeg_in_winget()
     if found:
         return str(found)
-
     return None
 
 
 def ensure_ffmpeg() -> str:
-    """Return path to ffmpeg, installing via winget if necessary. Exits on failure."""
     exe = find_ffmpeg()
     if exe:
         return exe
@@ -66,8 +55,8 @@ def ensure_ffmpeg() -> str:
 
     try:
         result = subprocess.run(
-            ["winget", "install", "--id", "Gyan.FFmpeg", "-e", "--accept-source-agreements",
-             "--accept-package-agreements"],
+            ["winget", "install", "--id", "Gyan.FFmpeg", "-e",
+             "--accept-source-agreements", "--accept-package-agreements"],
             timeout=300,
         )
     except FileNotFoundError:
@@ -81,21 +70,19 @@ def ensure_ffmpeg() -> str:
         sys.exit(1)
 
     if result.returncode != 0:
-        print("winget install failed. Trying BtbN build...")
+        print("Trying alternate FFmpeg package...")
         subprocess.run(
-            ["winget", "install", "--id", "BtbN.FFmpeg", "-e", "--accept-source-agreements",
-             "--accept-package-agreements"],
+            ["winget", "install", "--id", "BtbN.FFmpeg", "-e",
+             "--accept-source-agreements", "--accept-package-agreements"],
             timeout=300,
         )
 
-    # Re-check PATH and common locations after install
     exe = find_ffmpeg()
     if exe:
         print(f"\nFFmpeg installed: {exe}\n")
         return exe
 
-    # winget may have updated PATH but current process doesn't see it yet —
-    # try with the refreshed PATH from the registry
+    # Refresh PATH from registry and try once more
     try:
         new_path = subprocess.check_output(
             ["powershell", "-Command",
@@ -111,14 +98,14 @@ def ensure_ffmpeg() -> str:
     except Exception:
         pass
 
-    print("\nFFmpeg was installed but couldn't be located automatically.")
+    print("\nFFmpeg was installed but couldn't be located.")
     print("Please restart the program — it will work on the next run.")
     input("\nPress Enter to exit.")
     sys.exit(1)
 
 
 def find_video_folders(parent: Path) -> list[tuple[str, list[Path], Path]]:
-    """Return list of (folder_name, sorted_media_files, info_file) tuples."""
+    """Return (folder_name, sorted_media_files, info_file) for each valid subfolder."""
     results = []
     for entry in sorted(parent.iterdir()):
         if not entry.is_dir():
@@ -127,15 +114,113 @@ def find_video_folders(parent: Path) -> list[tuple[str, list[Path], Path]]:
         media_files = sorted(entry.glob("*.media"))
         if media_files and info_files:
             results.append((entry.name, media_files, info_files[0]))
-        elif media_files:
-            print(f"  Warning: no .info file in {entry.name} — skipping")
-        elif info_files:
-            print(f"  Warning: no .media files in {entry.name} — skipping")
     return results
 
 
+def find_media_root(start: Path, max_depth: int = 5) -> list[Path]:
+    """
+    Recursively search for folders that contain .media files.
+    Returns unique parent directories that hold video subfolders.
+    """
+    candidates: set[Path] = set()
+
+    def _walk(folder: Path, depth: int) -> None:
+        if depth > max_depth:
+            return
+        try:
+            for entry in folder.iterdir():
+                if not entry.is_dir():
+                    continue
+                if list(entry.glob("*.media")):
+                    # entry itself has .media files — its parent is the recordings root
+                    candidates.add(folder)
+                else:
+                    _walk(entry, depth + 1)
+        except PermissionError:
+            pass
+
+    _walk(start, 0)
+    return sorted(candidates)
+
+
+def pick_folder(initial: str | None) -> Path:
+    """
+    Ask the user for a folder, then validate it contains video subfolders.
+    If not found at the given level, search deeper and offer to use the
+    correct location automatically. Loops until a valid folder is chosen
+    or the user quits.
+    """
+    prompt_path = initial
+
+    while True:
+        if prompt_path is None:
+            prompt_path = input("\nPath to SwitchBot recordings folder:\n> ").strip().strip('"')
+
+        folder = Path(prompt_path)
+
+        if not folder.exists():
+            print(f"\n  Folder not found: {folder}")
+            prompt_path = None
+            continue
+
+        if not folder.is_dir():
+            print(f"\n  That is a file, not a folder: {folder}")
+            prompt_path = None
+            continue
+
+        print(f"\nScanning {folder} ...")
+        videos = find_video_folders(folder)
+
+        if videos:
+            return folder  # good — caller will use this
+
+        # Nothing found at this level — search deeper
+        print("  No .media files found here. Searching subfolders...")
+        roots = find_media_root(folder)
+
+        if not roots:
+            print("\n  No SwitchBot recordings found anywhere under that folder.")
+            print("  Make sure you are pointing to the SD card or the folder that")
+            print("  contains the dated subfolders (e.g. DCIM\\2026\\05\\12\\).")
+            print("\n  [R] Try a different path   [Q] Quit")
+            choice = input("> ").strip().lower()
+            if choice == "q":
+                sys.exit(0)
+            prompt_path = None
+            continue
+
+        if len(roots) == 1:
+            found = roots[0]
+            print(f"\n  Found recordings in: {found}")
+            confirm = input("  Use this folder? [Y/n]: ").strip().lower()
+            if confirm in ("", "y", "yes"):
+                return found
+            prompt_path = None
+            continue
+
+        # Multiple candidate roots — let user pick
+        print(f"\n  Found recordings in {len(roots)} location(s):")
+        for i, r in enumerate(roots, 1):
+            count = len(find_video_folders(r))
+            print(f"  [{i}] {r}  ({count} video(s))")
+        print(f"  [R] Enter a different path   [Q] Quit")
+        choice = input("\nChoose a number: ").strip().lower()
+        if choice == "q":
+            sys.exit(0)
+        if choice == "r":
+            prompt_path = None
+            continue
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(roots):
+                return roots[idx]
+        except ValueError:
+            pass
+        print("  Invalid choice.")
+        prompt_path = None
+
+
 def convert_video(ffmpeg: str, media_files: list[Path], output_path: Path) -> tuple[bool, str]:
-    """Concat-convert media fragments to MP4. Returns (success, message)."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
         concat_path = f.name
         for mf in media_files:
@@ -146,7 +231,6 @@ def convert_video(ffmpeg: str, media_files: list[Path], output_path: Path) -> tu
         ffmpeg, "-hide_banner", "-loglevel", "error",
         "-f", "concat", "-safe", "0", "-i", concat_path,
     ]
-
     attempts = [
         ([*base_cmd, "-c:v", "copy", "-c:a", "copy", "-y", str(output_path)], "stream-copy"),
         ([*base_cmd, "-c:v", "libx264", "-preset", "fast", "-crf", "18",
@@ -167,7 +251,7 @@ def convert_video(ffmpeg: str, media_files: list[Path], output_path: Path) -> tu
             Path(concat_path).unlink(missing_ok=True)
             return False, str(exc)
 
-    last_err = (result.stderr[-300:] if result and result.stderr else "unknown")
+    last_err = result.stderr[-300:] if result and result.stderr else "unknown"
     Path(concat_path).unlink(missing_ok=True)
     return False, f"ffmpeg: {last_err}"
 
@@ -179,7 +263,7 @@ def main() -> int:
         epilog="Example:\n  SwitchBot_Converter.exe C:\\SD\\recordings",
     )
     parser.add_argument("input", nargs="?",
-                        help="Folder containing per-video subfolders with .media/.info files")
+                        help="Folder with per-video subfolders containing .media/.info files")
     parser.add_argument("--output", "-o",
                         help="Output folder (default: <input>/converted_mp4)")
     args = parser.parse_args()
@@ -188,34 +272,17 @@ def main() -> int:
     print("  SwitchBot Camera  →  MP4 Converter")
     print("=" * 58)
 
-    # Auto-install FFmpeg if missing
     ffmpeg = ensure_ffmpeg()
 
-    # Resolve input folder
-    input_folder_str = (
-        args.input or input("\nPath to SwitchBot recordings folder:\n> ").strip().strip('"')
-    )
-    input_folder = Path(input_folder_str)
-    if not input_folder.is_dir():
-        print(f"\nError: not a directory: {input_folder}")
-        input("\nPress Enter to exit.")
-        return 1
+    input_folder = pick_folder(args.input)
 
-    # Find videos
-    print(f"\nScanning {input_folder} ...")
     videos = find_video_folders(input_folder)
-    if not videos:
-        print("No valid video folders found (need .media + .info pairs).")
-        input("\nPress Enter to exit.")
-        return 1
     print(f"Found {len(videos)} video(s) to convert.\n")
 
-    # Output folder
     output_folder = Path(args.output) if args.output else input_folder / "converted_mp4"
     output_folder.mkdir(parents=True, exist_ok=True)
     print(f"Output → {output_folder}\n")
 
-    # Convert
     ok = fail = 0
     errors: list[str] = []
     iterator = tqdm(videos, unit="video") if HAS_TQDM else videos
@@ -233,7 +300,6 @@ def main() -> int:
             if not HAS_TQDM:
                 print(f"  FAIL  {folder_name}  — {msg}")
 
-    # Summary
     print("\n" + "=" * 58)
     print(f"  Done: {ok} converted, {fail} failed  (total {len(videos)})")
     if errors:
