@@ -4,7 +4,7 @@ Batch-converts SwitchBot camera SD card recordings (`.media` + `.info` files) in
 
 ## Download
 
-**[⬇ Download SwitchBot_Converter.exe](https://github.com/natebell510/switchbot-media-to-mp4/releases/download/v1.0.0/SwitchBot_Converter.exe)** — no Python required, just double-click.
+**[⬇ Download SwitchBot_Converter.exe](https://github.com/natebell510/switchbot-media-to-mp4/releases/download/v1.1.0/SwitchBot_Converter.exe)** — double-click and run. FFmpeg installs automatically on first launch.
 
 Or clone and run the Python script directly (see [Script usage](#python-script)).
 
@@ -14,10 +14,8 @@ Or clone and run the Python script directly (see [Script usage](#python-script))
 
 | Requirement | Where to get it |
 |---|---|
-| **FFmpeg** (required) | `winget install --id BtbN.FFmpeg -e` or [ffmpeg.org](https://ffmpeg.org/download.html) |
+| **FFmpeg** | Installed automatically on first run — nothing to do |
 | Python 3.8+ (script only) | [python.org](https://www.python.org/downloads/) — check "Add to PATH" |
-
-> After installing FFmpeg, **restart your terminal** so the PATH updates.
 
 ---
 
@@ -25,14 +23,10 @@ Or clone and run the Python script directly (see [Script usage](#python-script))
 
 ### Executable (easiest)
 
-1. [Download `SwitchBot_Converter.exe`](../../releases/latest)
-2. Install FFmpeg (one-time): open Command Prompt and run  
-   ```
-   winget install --id BtbN.FFmpeg -e
-   ```
-3. Double-click `SwitchBot_Converter.exe`
-4. Paste the path to your SD card folder when prompted
-5. MP4 files appear in a `converted_mp4` subfolder
+1. [Download `SwitchBot_Converter.exe`](https://github.com/natebell510/switchbot-media-to-mp4/releases/download/v1.1.0/SwitchBot_Converter.exe)
+2. Double-click it — FFmpeg installs automatically if needed
+3. Paste the path to your SD card folder when prompted
+4. MP4 files appear in a `converted_mp4` subfolder
 
 ### Python script
 
