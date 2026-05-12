@@ -4,7 +4,7 @@ Batch-converts SwitchBot camera SD card recordings (`.media` + `.info` files) in
 
 ## Download
 
-**[⬇ Download SwitchBot_Converter.exe](../../releases/latest)** — no Python required, just double-click.
+**[⬇ Download SwitchBot_Converter.exe](https://github.com/natebell510/switchbot-media-to-mp4/releases/download/v1.0.0/SwitchBot_Converter.exe)** — no Python required, just double-click.
 
 Or clone and run the Python script directly (see [Script usage](#python-script)).
 
