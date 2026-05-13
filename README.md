@@ -1,4 +1,6 @@
 # SwitchBot Camera → MP4 Converter
+<img width="1362" height="1180" alt="converter" src="https://github.com/user-attachments/assets/262c507a-7339-4d3a-8ab1-2d322c1ecb48" />
+
 
 Batch-converts SwitchBot camera SD card recordings (`.media` + `.info` files) into standard MP4 videos with audio — drag, drop, done.
 
